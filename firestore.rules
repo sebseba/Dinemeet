@@ -1,0 +1,91 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    function isGroupParticipant(groupId) {
+      return isSignedIn() && 
+        request.auth.uid in resource.data.participantUids;
+    }
+    
+    function isChatParticipant(chatId) {
+      return isSignedIn() && 
+        request.auth.uid in resource.data.participantUids;
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if isOwner(userId);
+    }
+    
+    // Match preferences collection
+    match /matchPreferences/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+    
+    // Match queue collection
+    match /matchQueue/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+    
+    // Groups collection
+    match /groups/{groupId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if false; // Groups cannot be deleted
+    }
+    
+    // Reservations collection
+    match /reservations/{resId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if false; // Reservations cannot be deleted
+    }
+    
+    // Chats collection
+    match /chats/{chatId} {
+      allow read, write: if isSignedIn();
+      
+      // Messages subcollection
+      match /messages/{messageId} {
+        allow read, write: if isSignedIn();
+      }
+    }
+    
+    // Surveys collection
+    match /surveys/{surveyId} {
+      allow create: if isSignedIn() && 
+        request.resource.data.respondentUid == request.auth.uid;
+      allow read: if isSignedIn();
+      allow update: if false; // Surveys cannot be updated
+      allow delete: if false; // Surveys cannot be deleted
+    }
+    
+    // Reports collection
+    match /reports/{reportId} {
+      allow create: if isSignedIn() && 
+        request.resource.data.reporterUid == request.auth.uid;
+      allow read: if isSignedIn();
+      allow update: if false; // Reports cannot be updated
+      allow delete: if false; // Reports cannot be deleted
+    }
+    
+    // Venues collection (read-only for users)
+    match /venues/{venueId} {
+      allow read: if isSignedIn();
+      allow write: if false; // Only admins can modify venues
+    }
+  }
+}
